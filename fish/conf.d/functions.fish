@@ -132,26 +132,39 @@ end
 
 # --- Trash management ---
 function trash
-    if count $argv -eq 0
+    # Filter out common rm flags (ignore them, like -rf, -r, -f, etc.)
+    set -l files
+    for arg in $argv
+        if not string match -q -- '-*' "$arg"
+            set files $files "$arg"
+        end
+    end
+    
+    if count $files -eq 0
         echo "Usage: trash file [file2 ...]" >&2
+        echo "Note: Flags like -rf are ignored. If using globs (like fish_*), ensure files exist." >&2
         return 1
     end
+    
     set -l trash_dir ~/.local/share/Trash/files
     # Validate home directory is writable
     if not test -w ~
         echo "Error: No write permission to home directory" >&2
         return 1
     end
-    if not mkdir -p $trash_dir
+    if not mkdir -p "$trash_dir"
         echo "Error: Failed to create trash directory '$trash_dir'" >&2
         return 1
     end
-    for f in $argv
+    
+    set -l moved_count 0
+    for f in $files
         # Validate input is a valid path
         if test -z "$f"
             echo "Warning: Empty argument, skipping" >&2
             continue
         end
+        # Check if file exists (handles glob patterns that don't match)
         if not test -e "$f"
             echo "Warning: '$f' does not exist, skipping" >&2
             continue
@@ -160,12 +173,19 @@ function trash
             echo "Error: No write permission to remove '$f'" >&2
             continue
         end
-        if not command mv $f $trash_dir/ 2>/dev/null
+        if not command mv "$f" "$trash_dir/" 2>/dev/null
             echo "Error: Failed to move '$f' to trash" >&2
             return 1
         end
+        set moved_count (math $moved_count + 1)
     end
-    echo "Moved to Trash 🗑️"
+    
+    if test $moved_count -gt 0
+        echo "Moved $moved_count file(s) to Trash 🗑️"
+    else
+        echo "No files were moved to trash" >&2
+        return 1
+    end
 end
 
 function etrash
