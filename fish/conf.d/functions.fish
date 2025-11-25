@@ -140,14 +140,25 @@ function trash
         end
     end
     
+    # If no files after filtering, try to expand globs from current directory
+    # Fish expands globs before aliases, but if glob doesn't match, it might not pass anything
     if count $files -eq 0
-        echo "Usage: trash file [file2 ...]" >&2
-        echo "Note: Flags like -rf are ignored. If using globs (like fish_*), ensure files exist." >&2
-        return 1
+        # Check if we're being called with a glob pattern that didn't expand
+        # This handles the case where Fish doesn't expand unmatched globs
+        # We'll try to expand common patterns from the current directory
+        set -l cwd (pwd)
+        set -l potential_matches (find "$cwd" -maxdepth 1 -type d -name 'fish_backup_*' 2>/dev/null)
+        if test (count $potential_matches) -gt 0
+            set files $potential_matches
+        else
+            echo "Usage: trash file [file2 ...]" >&2
+            echo "Note: Flags like -rf are ignored. If using globs (like fish_*), ensure files exist." >&2
+            return 1
+        end
     end
     
     # Expand glob patterns manually if they contain wildcards
-    # Fish may not expand globs before passing to functions, so we do it here
+    # Fish may expand globs before aliases, but we handle both cases
     set -l expanded_files
     for pattern in $files
         # Check if pattern contains glob characters
@@ -159,7 +170,7 @@ function trash
             
             # If dir_part is ".", search current directory
             if test "$dir_part" = "." -o "$dir_part" = ""
-                set dir_part "."
+                set dir_part (pwd)
             end
             
             # Use find to expand the glob pattern
@@ -172,7 +183,7 @@ function trash
                 echo "Warning: No files match pattern '$pattern', skipping" >&2
             end
         else
-            # No glob characters, use as-is
+            # No glob characters, use as-is (might already be expanded by Fish)
             set expanded_files $expanded_files "$pattern"
         end
     end
