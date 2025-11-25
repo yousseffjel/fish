@@ -58,20 +58,22 @@ function ultrapro_doctor
 
     # Check other key plugins by reading fish_plugins file
     if test -f "$HOME/.config/fish/fish_plugins"
-        set -l installed_plugins (cat "$HOME/.config/fish/fish_plugins" 2>/dev/null | string trim)
+        set -l installed_plugins (cat "$HOME/.config/fish/fish_plugins" 2>/dev/null | string trim | string lower)
         set -l key_plugins fzf.fish autopair z nvm abbreviation-tips done
         for plugin in $key_plugins
             set -l plugin_name (string replace -r '\.fish$' '' -- $plugin)
-            # Check if plugin is in fish_plugins file or has a function/file
+            set -l plugin_lower (string lower $plugin)
+            # Check if plugin is in fish_plugins file (case-insensitive)
             set -l found 0
             for installed in $installed_plugins
-                if string match -q "*$plugin*" "$installed"
+                # Match plugin name in various formats (case-insensitive)
+                if string match -q "*$plugin_lower*" "$installed"; or string match -q "*$plugin_name*" "$installed"
                     set found 1
                     break
                 end
             end
             if test $found -eq 0
-                # Also check for function or file
+                # Also check for function or file as fallback
                 if functions -q $plugin_name; or test -f "$HOME/.config/fish/functions/$plugin_name.fish"
                     set found 1
                 end
