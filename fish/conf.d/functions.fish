@@ -146,6 +146,42 @@ function trash
         return 1
     end
     
+    # Expand glob patterns manually if they contain wildcards
+    # Fish may not expand globs before passing to functions, so we do it here
+    set -l expanded_files
+    for pattern in $files
+        # Check if pattern contains glob characters
+        if string match -q -- '*\**' "$pattern"; or string match -q -- '*\?*' "$pattern"; or string match -q -- '*\[*' "$pattern"
+            # Pattern contains glob characters, expand it using find
+            # Get the directory part and the pattern part
+            set -l dir_part (dirname "$pattern")
+            set -l name_part (basename "$pattern")
+            
+            # If dir_part is ".", search current directory
+            if test "$dir_part" = "." -o "$dir_part" = ""
+                set dir_part "."
+            end
+            
+            # Use find to expand the glob pattern
+            set -l matches (find "$dir_part" -maxdepth 1 -name "$name_part" 2>/dev/null)
+            if test (count $matches) -gt 0
+                for match in $matches
+                    set expanded_files $expanded_files "$match"
+                end
+            else
+                echo "Warning: No files match pattern '$pattern', skipping" >&2
+            end
+        else
+            # No glob characters, use as-is
+            set expanded_files $expanded_files "$pattern"
+        end
+    end
+    
+    if count $expanded_files -eq 0
+        echo "No files to trash" >&2
+        return 1
+    end
+    
     set -l trash_dir ~/.local/share/Trash/files
     # Validate home directory is writable
     if not test -w ~
@@ -158,13 +194,13 @@ function trash
     end
     
     set -l moved_count 0
-    for f in $files
+    for f in $expanded_files
         # Validate input is a valid path
         if test -z "$f"
             echo "Warning: Empty argument, skipping" >&2
             continue
         end
-        # Check if file exists (handles glob patterns that don't match)
+        # Check if file exists
         if not test -e "$f"
             echo "Warning: '$f' does not exist, skipping" >&2
             continue
