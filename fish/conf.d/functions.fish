@@ -34,9 +34,9 @@ function cpc
             return 1
         end
         if test -f "$src"
-            set -l file_size (stat -f%z "$src" 2>/dev/null; or stat -c%s "$src" 2>/dev/null; or echo "unknown")
+            set -l file_size (stat -f%z "$src" ^/dev/null; or stat -c%s "$src" ^/dev/null; or echo "unknown")
             echo "Copying $src → $dest (size: $file_size bytes)"
-            if not pv "$src" >$dest_file 2>/dev/null
+            if not pv "$src" > "$dest_file" ^/dev/null
                 echo "Error: Failed to copy file" >&2
                 return 1
             end
@@ -47,7 +47,7 @@ function cpc
                 echo "Error: tar is required but not installed" >&2
                 return 1
             end
-            if not tar cf - "$src" 2>/dev/null | pv 2>/dev/null | tar xf - -C "$dest" 2>/dev/null
+            if not tar cf - "$src" ^/dev/null | pv ^/dev/null | tar xf - -C "$dest" ^/dev/null
                 echo "Error: Failed to copy directory" >&2
                 return 1
             end
@@ -98,9 +98,9 @@ function mvc
             return 1
         end
         if test -f "$src"
-            set -l file_size (stat -f%z "$src" 2>/dev/null; or stat -c%s "$src" 2>/dev/null; or echo "unknown")
+            set -l file_size (stat -f%z "$src" ^/dev/null; or stat -c%s "$src" ^/dev/null; or echo "unknown")
             echo "Moving $src → $dest (size: $file_size bytes)"
-            if pv "$src" >$dest_file 2>/dev/null
+            if pv "$src" > "$dest_file" ^/dev/null
                 if not command rm "$src"
                     echo "Warning: File copied but source deletion failed" >&2
                 else
@@ -116,7 +116,7 @@ function mvc
                 echo "Error: tar is required but not installed" >&2
                 return 1
             end
-            if tar cf - "$src" 2>/dev/null | pv 2>/dev/null | tar xf - -C "$dest" 2>/dev/null
+            if tar cf - "$src" ^/dev/null | pv ^/dev/null | tar xf - -C "$dest" ^/dev/null
                 if not command rm -rf "$src"
                     echo "Warning: Directory copied but source deletion failed" >&2
                 else
@@ -171,7 +171,7 @@ function trash
             end
             
             # Use find to expand the glob pattern
-            set -l matches (find "$dir_part" -maxdepth 1 -name "$name_part" 2>/dev/null)
+            set -l matches (find "$dir_part" -maxdepth 1 -name "$name_part" ^/dev/null)
             if test (count $matches) -gt 0
                 for match in $matches
                     set expanded_files $expanded_files "$match"
@@ -217,7 +217,7 @@ function trash
             echo "Error: No write permission to remove '$f'" >&2
             continue
         end
-        if not command mv "$f" "$trash_dir/" 2>/dev/null
+        if not command mv "$f" "$trash_dir/" ^/dev/null
             echo "Error: Failed to move '$f' to trash" >&2
             return 1
         end
@@ -239,7 +239,7 @@ function etrash
         return 0
     end
     # Count files before deletion for confirmation
-    set -l file_count (count (find $trash_dir -type f 2>/dev/null))
+    set -l file_count (count (find $trash_dir -type f ^/dev/null))
     if test $file_count -eq 0
         echo "Trash is already empty."
         return 0
@@ -250,7 +250,7 @@ function etrash
         echo "Cancelled."
         return 0
     end
-    if command rm -rf $trash_dir/* 2>/dev/null
+    if command rm -rf $trash_dir/* ^/dev/null
         echo "Trash emptied 🧹"
     else
         echo "Error: Failed to empty trash" >&2
@@ -277,7 +277,7 @@ function fcd
             return 1
         end
     end
-    set dir (find "$search_path" -type d -maxdepth 10 2>/dev/null | fzf)
+    set dir (find "$search_path" -type d -maxdepth 10 ^/dev/null | fzf)
     if test -n "$dir"
         if test -d "$dir"
             cd "$dir"
@@ -331,70 +331,70 @@ function extract
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            tar -xjf "$archive" -C "$dest" 2>/dev/null
+            tar -xjf "$archive" -C "$dest" ^/dev/null
         case '*.tar.gz' '*.tgz'
             if not type -q tar
                 echo "Error: tar is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            tar -xzf "$archive" -C "$dest" 2>/dev/null
+            tar -xzf "$archive" -C "$dest" ^/dev/null
         case '*.tar.xz' '*.txz'
             if not type -q tar
                 echo "Error: tar is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            tar -xJf "$archive" -C "$dest" 2>/dev/null
+            tar -xJf "$archive" -C "$dest" ^/dev/null
         case '*.tar'
             if not type -q tar
                 echo "Error: tar is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            tar -xf "$archive" -C "$dest" 2>/dev/null
+            tar -xf "$archive" -C "$dest" ^/dev/null
         case '*.zip'
             if not type -q unzip
                 echo "Error: unzip is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            unzip -q "$archive" -d "$dest" 2>/dev/null
+            unzip -q "$archive" -d "$dest" ^/dev/null
         case '*.7z'
             if not type -q 7z
                 echo "Error: 7z is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            7z x "$archive" -o"$dest" -y >/dev/null 2>&1
+            7z x "$archive" -o"$dest" -y >/dev/null ^&1
         case '*.rar'
             if not type -q unrar
                 echo "Error: unrar is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            unrar x "$archive" "$dest" >/dev/null 2>&1
+            unrar x "$archive" "$dest" >/dev/null ^&1
         case '*.gz'
             if not type -q gunzip
                 echo "Error: gunzip is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            gunzip -c "$archive" > "$dest/$name" 2>/dev/null
+            gunzip -c "$archive" > "$dest/$name" ^/dev/null
         case '*.bz2'
             if not type -q bunzip2
                 echo "Error: bunzip2 is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            bunzip2 -c "$archive" > "$dest/$name" 2>/dev/null
+            bunzip2 -c "$archive" > "$dest/$name" ^/dev/null
         case '*.xz'
             if not type -q unxz
                 echo "Error: unxz is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            unxz -c "$archive" > "$dest/$name" 2>/dev/null
+            unxz -c "$archive" > "$dest/$name" ^/dev/null
         case '*'
             echo "Error: Unsupported archive format: $archive" >&2
             echo "Supported: zip, tar, tar.gz, tar.bz2, tar.xz, 7z, rar, gz, bz2, xz" >&2
@@ -500,7 +500,7 @@ function findlarge
     end
     
     echo "Finding files larger than $size in $path..."
-    find "$path" -type f -size +"$size" -exec ls -lh {} \; 2>/dev/null | awk '{print $5, $9}' | sort -hr
+    find "$path" -type f -size +"$size" -exec ls -lh {} \; ^/dev/null | awk '{print $5, $9}' | sort -hr
 end
 
 # --- Quick project finder/launcher ---
@@ -530,7 +530,7 @@ function proj
     set projects
     for dir in $search_paths
         if test -d "$dir"
-            set -l found (find "$dir" -maxdepth 3 -type d \( -name '.git' -o -name 'node_modules' -o -name 'package.json' -o -name 'Cargo.toml' -o -name 'go.mod' -o -name 'requirements.txt' \) -prune -o -type d -print 2>/dev/null | head -50)
+            set -l found (find "$dir" -maxdepth 3 -type d \( -name '.git' -o -name 'node_modules' -o -name 'package.json' -o -name 'Cargo.toml' -o -name 'go.mod' -o -name 'requirements.txt' \) -prune -o -type d -print ^/dev/null | head -50)
             set projects $projects $found
         end
     end
