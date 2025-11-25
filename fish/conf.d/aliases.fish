@@ -92,6 +92,7 @@ alias mv='mvc'
 # Use a wrapper function instead of direct alias to ensure glob expansion works
 function rm --wraps=trash
     # Fish expands globs before function calls, so this should work
+    # Pass all arguments to trash function
     trash $argv
 end
 alias cls='clear'

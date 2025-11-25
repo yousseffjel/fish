@@ -519,7 +519,7 @@ function proj
     end
     
     # Build search paths
-    set -l search_paths $base_dir
+    set search_paths $base_dir
     for dir in $search_dirs
         if test -d "$dir"
             set search_paths $search_paths $dir
@@ -527,7 +527,7 @@ function proj
     end
     
     # Find directories that look like projects (contain .git, package.json, etc.)
-    set -l projects
+    set projects
     for dir in $search_paths
         if test -d "$dir"
             set -l found (find "$dir" -maxdepth 3 -type d \( -name '.git' -o -name 'node_modules' -o -name 'package.json' -o -name 'Cargo.toml' -o -name 'go.mod' -o -name 'requirements.txt' \) -prune -o -type d -print 2>/dev/null | head -50)
