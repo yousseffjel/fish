@@ -28,3 +28,8 @@ end
 # bun
 set --export BUN_INSTALL "$HOME/.bun"
 set --export PATH $BUN_INSTALL/bin $PATH
+
+# Track startup time (only in interactive sessions)
+if status is-interactive
+    set -g __fish_start_time (date +%s.%N)
+end
