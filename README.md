@@ -63,7 +63,7 @@ The repo mirrors `~/.config/fish`:
         -   `aliases.fish` — common aliases
         -   `functions.fish` — lightweight utility functions
         -   `prompt.fish` — Tide Classic preset (applied once, optional)
-        -   `z.fish` — host-specific overrides auto-sourced
+        -   `local-overrides.fish` — host-specific overrides auto-sourced
     -   `functions/` — per-function autoloads (e.g. `ultrapro_doctor`)
 
 Ordering guidance:
@@ -128,7 +128,7 @@ Want host- or user-specific knobs? Drop files in:
 ~/.config/fish/local/*.fish
 ```
 
-They’re auto-sourced by `99-local-overrides.fish` and are not part of the repo.
+They're auto-sourced by `local-overrides.fish` and are not part of the repo.
 
 Examples:
 
@@ -166,7 +166,7 @@ fish_add_path /opt/special/bin
     -   The installer backs up legacy `~/.config/fish/fisher_plugins` automatically; re-run after it’s moved
 
 -   Debian/Ubuntu `bat` is `batcat`
-    -   This config auto-detects and aliases accordingly (see `20-aliases.fish`)
+    -   This config auto-detects and aliases accordingly (see `aliases.fish`)
 
 ## Health check
 

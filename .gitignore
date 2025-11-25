@@ -1,14 +1,19 @@
-# OS
-.DS_Store
-Thumbs.db
+# Backup directories created by installer
+fish_backup_*
 
-# Editors / IDEs
+# Local overrides (user-specific, not tracked)
+.local/
+
+# macOS
+.DS_Store
+
+# Editor directories
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
 
-# Backups created by installer
-fish_backup_*/
-
-# Logs
+# Temporary files
+*.tmp
 *.log

@@ -30,6 +30,19 @@ function ultrapro_doctor
     # Fisher
     if functions -q fisher
         echo "[ok] fisher installed"
+        # Check if Fisher plugins are actually installed
+        if test -f "$HOME/.config/fish/fish_plugins"
+            set -l installed_plugins (cat "$HOME/.config/fish/fish_plugins" 2>/dev/null | string trim)
+            if test -n "$installed_plugins"
+                echo "[ok] fisher plugins file exists"
+            else
+                echo "[warn] fisher plugins file is empty"
+                set issues 1
+            end
+        else
+            echo "[warn] fisher plugins file not found (plugins may not be installed)"
+            set issues 1
+        end
     else
         echo "[warn] fisher not found. Install with: curl -sL https://git.io/fisher | source; and fisher install jorgebucaran/fisher"
         set issues 1
@@ -41,6 +54,18 @@ function ultrapro_doctor
     else
         echo "[warn] tide not found. Install with: fisher install IlanCosman/tide@v6"
         set issues 1
+    end
+
+    # Check other key plugins
+    set -l key_plugins fzf.fish autopair z nvm abbreviation-tips done
+    for plugin in $key_plugins
+        set -l plugin_name (string replace -r '\.fish$' '' -- $plugin)
+        if functions -q $plugin_name; or test -f "$HOME/.config/fish/functions/$plugin_name.fish"
+            true  # Plugin appears to be installed
+        else
+            echo "[warn] plugin $plugin may not be installed"
+            set issues 1
+        end
     end
 
     # Tools

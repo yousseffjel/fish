@@ -28,9 +28,15 @@ end
 alias update='sudo pacman -Syu'
 alias install='sudo pacman -S'
 alias remove='sudo pacman -Rns'
-# 'clean' removes orphaned packages. This fails if there are none; I keep it simple.
-# If you want a safer version that no-ops when empty, I can turn this into a function.
-alias clean='sudo pacman -Rns $(pacman -Qtdq)'
+# 'clean' removes orphaned packages safely (no-ops if none exist)
+function clean
+    set orphans (pacman -Qtdq)
+    if test -n "$orphans"
+        sudo pacman -Rns $orphans
+    else
+        echo "No orphaned packages to remove"
+    end
+end
 
 # --- Git Shortcuts ---
 alias gs='git status'
@@ -57,6 +63,10 @@ alias un7zf='7z x'
 # --- Fuzzy Finder Shortcuts ---
 alias fcd='fcd'
 alias ff='fzf'
+
+# --- Docker (systemd) ---
+alias dockeron='sudo systemctl start docker; and sudo systemctl enable docker; and echo "Docker started and enabled"'
+alias dockeroff='sudo systemctl stop docker; and sudo systemctl disable docker; and echo "Docker stopped and disabled"'
 
 # --- Misc ---
 alias please='sudo'

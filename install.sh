@@ -50,8 +50,15 @@ done
 run() {
     if [ "$DRY_RUN" -eq 1 ]; then
         echo "DRY-RUN: $*"
+        return 0
     else
-        eval "$@"
+        # If only one argument and it looks like a shell command with operators, evaluate it
+        # Otherwise execute normally (safer for simple commands)
+        if [ $# -eq 1 ] && case "$1" in *'|'*|*'&'*|*';'*|*'&&'*|*'||'*) true ;; *) false ;; esac; then
+            eval "$1"
+        else
+            "$@"
+        fi
     fi
 }
 
@@ -93,9 +100,9 @@ if [ -d "$CONFIG_DIR" ] || [ -L "$CONFIG_DIR" ]; then
 fi
 
 # 2) Create ~/.config/fish structure
-mkdir -p "$CONFIG_DIR"
-mkdir -p "$CONFIG_DIR/conf.d"
-mkdir -p "$CONFIG_DIR/functions"
+run mkdir -p "$CONFIG_DIR"
+run mkdir -p "$CONFIG_DIR/conf.d"
+run mkdir -p "$CONFIG_DIR/functions"
 
 # 3) Symlink configuration from the repo
 echo "Linking configuration files..."
@@ -158,13 +165,15 @@ install_deps() {
     elif command -v apt-get >/dev/null 2>&1; then
         run sudo apt-get update
         # Prefer eza, fall back to exa if unavailable; tolerate failure without aborting
-        run "sudo apt-get install -y fzf bat pv zip unzip p7zip-full tar eza || sudo apt-get install -y fzf bat pv zip unzip p7zip-full tar exa || true"
+        if ! run sudo apt-get install -y fzf bat pv zip unzip p7zip-full tar eza 2>/dev/null; then
+            run sudo apt-get install -y fzf bat pv zip unzip p7zip-full tar exa 2>/dev/null || true
+        fi
     elif command -v dnf >/dev/null 2>&1; then
-        run "sudo dnf install -y fzf bat pv zip unzip p7zip p7zip-plugins tar eza || true"
+        run sudo dnf install -y fzf bat pv zip unzip p7zip p7zip-plugins tar eza 2>/dev/null || log "Some packages may not be available (non-fatal)"
     elif command -v zypper >/dev/null 2>&1; then
-        run "sudo zypper install -y fzf bat pv zip unzip p7zip-full tar eza || true"
+        run sudo zypper install -y fzf bat pv zip unzip p7zip-full tar eza 2>/dev/null || log "Some packages may not be available (non-fatal)"
     elif command -v apk >/dev/null 2>&1; then
-        run "sudo apk add fzf bat pv zip unzip p7zip tar eza || true"
+        run sudo apk add fzf bat pv zip unzip p7zip tar eza 2>/dev/null || log "Some packages may not be available (non-fatal)"
     elif command -v brew >/dev/null 2>&1; then
         run brew install fzf bat pv zip unzip p7zip gnu-tar eza
     else
@@ -186,7 +195,20 @@ if [ -d "$CONFIG_DIR/fisher_plugins" ]; then
     log "Backing up legacy fisher_plugins to $BACKUP_DIR/fisher_plugins_$(date +%s)"
     run mv "$CONFIG_DIR/fisher_plugins" "$BACKUP_DIR/fisher_plugins_$(date +%s)"
 fi
-run "fish -c 'set -g fish_color_error red; curl -sL https://git.io/fisher | source; and fisher install jorgebucaran/fisher; and fisher install PatrickF1/fzf.fish IlanCosman/tide@v6 jorgebucaran/autopair.fish jethrokuan/z jorgebucaran/nvm.fish gazorby/fish-abbreviation-tips franciscolourenco/done'"
+
+# Install Fisher with error handling
+if [ "$DRY_RUN" -eq 1 ]; then
+    log "DRY-RUN: Would install Fisher and plugins"
+else
+    if ! fish -c 'set -g fish_color_error red; curl -sL https://git.io/fisher | source; and fisher install jorgebucaran/fisher; and fisher install PatrickF1/fzf.fish IlanCosman/tide@v6 jorgebucaran/autopair.fish jethrokuan/z jorgebucaran/nvm.fish gazorby/fish-abbreviation-tips franciscolourenco/done' 2>&1; then
+        echo "⚠️  Warning: Fisher plugin installation failed or had errors." >&2
+        echo "   You can install plugins manually later with:" >&2
+        echo "   fisher install jorgebucaran/fisher PatrickF1/fzf.fish IlanCosman/tide@v6 jorgebucaran/autopair.fish jethrokuan/z jorgebucaran/nvm.fish gazorby/fish-abbreviation-tips franciscolourenco/done" >&2
+        echo "   Continuing with installation..." >&2
+    else
+        log "✅ Fisher and plugins installed successfully"
+    fi
+fi
 
 # 7) Optionally set Fish as my default shell
 if [ "$NO_CHSH" -eq 1 ]; then

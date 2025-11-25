@@ -15,7 +15,8 @@ function cpc
         set dest $argv[-1]
         if test -f $src
             echo "Copying $src → $dest"
-            pv $src > $dest/(basename $src)
+            set dest_file "$dest/"(path basename $src)
+            pv $src > $dest_file
         else if test -d $src
             echo "Copying directory $src → $dest"
             tar cf - $src | pv | tar xf - -C $dest
@@ -33,10 +34,11 @@ function mvc
         set dest $argv[-1]
         if test -f $src
             echo "Moving $src → $dest"
-            pv $src > $dest/(basename $src); rm $src
+            set dest_file "$dest/"(path basename $src)
+            pv $src > $dest_file; and command rm $src
         else if test -d $src
             echo "Moving directory $src → $dest"
-            tar cf - $src | pv | tar xf - -C $dest; rm -rf $src
+            tar cf - $src | pv | tar xf - -C $dest; and command rm -rf $src
         end
     end
 end
@@ -45,13 +47,13 @@ end
 function trash
     mkdir -p ~/.local/share/Trash/files
     for f in $argv
-        mv $f ~/.local/share/Trash/files/
+        command mv $f ~/.local/share/Trash/files/
     end
     echo "Moved to Trash 🗑️"
 end
 
 function etrash
-    rm -rf ~/.local/share/Trash/files/*
+    command rm -rf ~/.local/share/Trash/files/*
     echo "Trash emptied 🧹"
 end
 
