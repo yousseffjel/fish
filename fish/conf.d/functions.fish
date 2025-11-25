@@ -407,9 +407,9 @@ function duh
     
     # Use human-readable format, sort by size
     if type -q sort
-        du -h $path | sort -hr | head -20
+        du -h "$path" | sort -hr | head -20
     else
-        du -h $path
+        du -h "$path"
     end
 end
 
@@ -465,8 +465,8 @@ function proj
     # Find directories that look like projects (contain .git, package.json, etc.)
     set -l projects
     for dir in $search_paths
-        if test -d $dir
-            set -l found (find $dir -maxdepth 3 -type d \( -name '.git' -o -name 'node_modules' -o -name 'package.json' -o -name 'Cargo.toml' -o -name 'go.mod' -o -name 'requirements.txt' \) -prune -o -type d -print 2>/dev/null | head -50)
+        if test -d "$dir"
+            set -l found (find "$dir" -maxdepth 3 -type d \( -name '.git' -o -name 'node_modules' -o -name 'package.json' -o -name 'Cargo.toml' -o -name 'go.mod' -o -name 'requirements.txt' \) -prune -o -type d -print 2>/dev/null | head -50)
             set projects $projects $found
         end
     end
