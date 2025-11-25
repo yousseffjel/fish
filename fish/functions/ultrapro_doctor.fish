@@ -56,16 +56,34 @@ function ultrapro_doctor
         set issues 1
     end
 
-    # Check other key plugins
-    set -l key_plugins fzf.fish autopair z nvm abbreviation-tips done
-    for plugin in $key_plugins
-        set -l plugin_name (string replace -r '\.fish$' '' -- $plugin)
-        if functions -q $plugin_name; or test -f "$HOME/.config/fish/functions/$plugin_name.fish"
-            true  # Plugin appears to be installed
-        else
-            echo "[warn] plugin $plugin may not be installed"
-            set issues 1
+    # Check other key plugins by reading fish_plugins file
+    if test -f "$HOME/.config/fish/fish_plugins"
+        set -l installed_plugins (cat "$HOME/.config/fish/fish_plugins" 2>/dev/null | string trim)
+        set -l key_plugins fzf.fish autopair z nvm abbreviation-tips done
+        for plugin in $key_plugins
+            set -l plugin_name (string replace -r '\.fish$' '' -- $plugin)
+            # Check if plugin is in fish_plugins file or has a function/file
+            set -l found 0
+            for installed in $installed_plugins
+                if string match -q "*$plugin*" "$installed"
+                    set found 1
+                    break
+                end
+            end
+            if test $found -eq 0
+                # Also check for function or file
+                if functions -q $plugin_name; or test -f "$HOME/.config/fish/functions/$plugin_name.fish"
+                    set found 1
+                end
+            end
+            if test $found -eq 0
+                echo "[warn] plugin $plugin may not be installed"
+                set issues 1
+            end
         end
+    else
+        echo "[warn] Cannot check plugins - fish_plugins file not found"
+        set issues 1
     end
 
     # Tools
@@ -118,11 +136,15 @@ function ultrapro_doctor
         set issues 1
     end
 
-    # Startup time (if available)
-    if set -q __fish_start_time
-        set -l end_time (date +%s.%N)
-        set -l startup_time (math "$end_time - $__fish_start_time")
-        printf "[ok] startup time: %.3fs\n" $startup_time
+    # Startup time measurement
+    if type -q time
+        # Measure startup time by timing a fresh fish instance
+        set -l measured_time (time fish -c exit 2>&1 | string match -r '[\d.]+' | head -1)
+        if test -n "$measured_time"
+            printf "[ok] startup time: %.3fs\n" $measured_time
+        end
+    else
+        echo "[info] time command not available, skipping startup time measurement"
     end
     
     if test $issues -eq 0
@@ -136,11 +158,14 @@ end
 
 # --- Show startup time ---
 function startup_time
-    if set -q __fish_start_time
-        set -l end_time (date +%s.%N)
-        set -l startup_time (math "$end_time - $__fish_start_time")
-        printf "Fish startup time: %.3fs\n" $startup_time
+    if type -q time
+        set -l measured_time (time fish -c exit 2>&1 | string match -r '[\d.]+' | head -1)
+        if test -n "$measured_time"
+            printf "Fish startup time: %.3fs\n" $measured_time
+        else
+            echo "Could not measure startup time" >&2
+        end
     else
-        echo "Startup time tracking not available (restart shell to enable)" >&2
+        echo "time command not available" >&2
     end
 end
