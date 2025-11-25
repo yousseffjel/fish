@@ -156,7 +156,7 @@ function trash
     
     # Expand glob patterns manually if they contain wildcards
     # Fish may expand globs before aliases, but we handle both cases
-    set -l expanded_files
+    set expanded_files
     for pattern in $files
         # Check if pattern contains glob characters
         if string match -q -- '*\**' "$pattern"; or string match -q -- '*\?*' "$pattern"; or string match -q -- '*\[*' "$pattern"
