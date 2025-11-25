@@ -13,13 +13,45 @@ function cpc
     end
     for src in $argv[1..-2]
         set dest $argv[-1]
+        # Validate source exists
+        if not test -e $src
+            echo "Error: Source '$src' does not exist" >&2
+            continue
+        end
+        # Validate destination is a directory or create it
+        if not test -d $dest
+            echo "Error: Destination '$dest' is not a directory" >&2
+            return 1
+        end
+        # Check if destination file already exists
+        set dest_file "$dest/"(path basename $src)
+        if test -e $dest_file
+            echo "Warning: Destination '$dest_file' already exists. Overwriting..." >&2
+        end
+        # Validate required tools
+        if not type -q pv
+            echo "Error: pv (pipe viewer) is required but not installed" >&2
+            return 1
+        end
         if test -f $src
-            echo "Copying $src → $dest"
-            set dest_file "$dest/"(path basename $src)
-            pv $src > $dest_file
+            set -l file_size (stat -f%z $src 2>/dev/null; or stat -c%s $src 2>/dev/null; or echo "unknown")
+            echo "Copying $src → $dest (size: $file_size bytes)"
+            if not pv $src > $dest_file
+                echo "Error: Failed to copy file" >&2
+                return 1
+            end
+            echo "✅ Copied successfully"
         else if test -d $src
             echo "Copying directory $src → $dest"
-            tar cf - $src | pv | tar xf - -C $dest
+            if not type -q tar
+                echo "Error: tar is required but not installed" >&2
+                return 1
+            end
+            if not tar cf - $src | pv | tar xf - -C $dest
+                echo "Error: Failed to copy directory" >&2
+                return 1
+            end
+            echo "✅ Copied successfully"
         end
     end
 end
@@ -27,45 +59,423 @@ end
 # --- Move with progress ---
 function mvc
     if count $argv < 2
-        echo "Usage: mvc source target_dir"
+        echo "Usage: mvc source [source2 ...] target_dir" >&2
+        return 1
+    end
+    # Validate all arguments are provided
+    if test (count $argv) -lt 2
+        echo "Error: At least one source and one destination required" >&2
         return 1
     end
     for src in $argv[1..-2]
         set dest $argv[-1]
+        # Validate source exists and is readable
+        if not test -e $src
+            echo "Error: Source '$src' does not exist" >&2
+            continue
+        end
+        if not test -r $src
+            echo "Error: Source '$src' is not readable" >&2
+            continue
+        end
+        # Validate destination is a directory
+        if not test -d $dest
+            echo "Error: Destination '$dest' is not a directory" >&2
+            return 1
+        end
+        if not test -w $dest
+            echo "Error: Destination '$dest' is not writable" >&2
+            return 1
+        end
+        # Check if destination file already exists
+        set dest_file "$dest/"(path basename $src)
+        if test -e $dest_file
+            echo "Warning: Destination '$dest_file' already exists. Overwriting..." >&2
+        end
+        # Validate required tools
+        if not type -q pv
+            echo "Error: pv (pipe viewer) is required but not installed" >&2
+            return 1
+        end
         if test -f $src
-            echo "Moving $src → $dest"
-            set dest_file "$dest/"(path basename $src)
-            pv $src > $dest_file; and command rm $src
+            set -l file_size (stat -f%z $src 2>/dev/null; or stat -c%s $src 2>/dev/null; or echo "unknown")
+            echo "Moving $src → $dest (size: $file_size bytes)"
+            if pv $src > $dest_file
+                if not command rm $src
+                    echo "Warning: File copied but source deletion failed" >&2
+                else
+                    echo "✅ Moved successfully"
+                end
+            else
+                echo "Error: Failed to move file. Source preserved." >&2
+                return 1
+            end
         else if test -d $src
             echo "Moving directory $src → $dest"
-            tar cf - $src | pv | tar xf - -C $dest; and command rm -rf $src
+            if not type -q tar
+                echo "Error: tar is required but not installed" >&2
+                return 1
+            end
+            if tar cf - $src | pv | tar xf - -C $dest
+                if not command rm -rf $src
+                    echo "Warning: Directory copied but source deletion failed" >&2
+                else
+                    echo "✅ Moved successfully"
+                end
+            else
+                echo "Error: Failed to move directory. Source preserved." >&2
+                return 1
+            end
         end
     end
 end
 
 # --- Trash management ---
 function trash
-    mkdir -p ~/.local/share/Trash/files
+    if count $argv -eq 0
+        echo "Usage: trash file [file2 ...]" >&2
+        return 1
+    end
+    set -l trash_dir ~/.local/share/Trash/files
+    # Validate home directory is writable
+    if not test -w ~
+        echo "Error: No write permission to home directory" >&2
+        return 1
+    end
+    if not mkdir -p $trash_dir
+        echo "Error: Failed to create trash directory '$trash_dir'" >&2
+        return 1
+    end
     for f in $argv
-        command mv $f ~/.local/share/Trash/files/
+        # Validate input is a valid path
+        if test -z "$f"
+            echo "Warning: Empty argument, skipping" >&2
+            continue
+        end
+        if not test -e $f
+            echo "Warning: '$f' does not exist, skipping" >&2
+            continue
+        end
+        if not test -w (dirname $f)
+            echo "Error: No write permission to remove '$f'" >&2
+            continue
+        end
+        if not command mv $f $trash_dir/ 2>/dev/null
+            echo "Error: Failed to move '$f' to trash" >&2
+            return 1
+        end
     end
     echo "Moved to Trash 🗑️"
 end
 
 function etrash
-    command rm -rf ~/.local/share/Trash/files/*
-    echo "Trash emptied 🧹"
+    set -l trash_dir ~/.local/share/Trash/files
+    if not test -d $trash_dir
+        echo "Trash directory does not exist. Nothing to empty."
+        return 0
+    end
+    # Count files before deletion for confirmation
+    set -l file_count (count (find $trash_dir -type f 2>/dev/null))
+    if test $file_count -eq 0
+        echo "Trash is already empty."
+        return 0
+    end
+    echo "About to permanently delete $file_count file(s) from trash."
+    read -P "Are you sure? (y/N): " confirm
+    if test "$confirm" != "y" -a "$confirm" != "Y"
+        echo "Cancelled."
+        return 0
+    end
+    if command rm -rf $trash_dir/* 2>/dev/null
+        echo "Trash emptied 🧹"
+    else
+        echo "Error: Failed to empty trash" >&2
+        return 1
+    end
 end
 
 # --- Fuzzy cd using fzf ---
 function fcd
-    set dir (find . -type d 2>/dev/null | fzf)
+    if not type -q fzf
+        echo "Error: fzf is not installed" >&2
+        return 1
+    end
+    if not type -q find
+        echo "Error: find is not installed" >&2
+        return 1
+    end
+    set -l search_path "."
+    if count $argv > 0
+        set search_path $argv[1]
+        # Validate search path exists
+        if not test -d $search_path
+            echo "Error: Search path '$search_path' is not a directory" >&2
+            return 1
+        end
+    end
+    set dir (find $search_path -type d -maxdepth 10 2>/dev/null | fzf)
     if test -n "$dir"
-        cd "$dir"
+        if test -d $dir
+            cd "$dir"
+        else
+            echo "Error: Selected directory '$dir' does not exist" >&2
+            return 1
+        end
     end
 end
 
 # --- Notification echo ---
 function notify_done
     printf '\033[1;32m✔ Done: %s\033[0m\n' "$argv"
+end
+
+# --- Extract archives (auto-detect format) ---
+function extract
+    if count $argv -eq 0
+        echo "Usage: extract <archive> [destination]" >&2
+        echo "Supported: zip, tar, tar.gz, tar.bz2, tar.xz, 7z, rar, gz, bz2, xz" >&2
+        return 1
+    end
+    
+    set -l archive $argv[1]
+    set -l dest "."
+    if count $argv > 1
+        set dest $argv[2]
+    end
+    
+    if not test -f $archive
+        echo "Error: Archive '$archive' does not exist" >&2
+        return 1
+    end
+    
+    set -l basename (path basename $archive)
+    set -l name (string replace -r '\.[^.]*$' '' -- $basename)
+    
+    # Create destination directory if needed
+    if not test -d $dest
+        if not mkdir -p $dest
+            echo "Error: Failed to create destination directory '$dest'" >&2
+            return 1
+        end
+    end
+    
+    # Detect and extract based on file extension
+    switch $archive
+        case '*.tar.bz2' '*.tbz2'
+            if not type -q tar
+                echo "Error: tar is required" >&2
+                return 1
+            end
+            echo "Extracting $archive to $dest..."
+            tar -xjf $archive -C $dest
+        case '*.tar.gz' '*.tgz'
+            if not type -q tar
+                echo "Error: tar is required" >&2
+                return 1
+            end
+            echo "Extracting $archive to $dest..."
+            tar -xzf $archive -C $dest
+        case '*.tar.xz' '*.txz'
+            if not type -q tar
+                echo "Error: tar is required" >&2
+                return 1
+            end
+            echo "Extracting $archive to $dest..."
+            tar -xJf $archive -C $dest
+        case '*.tar'
+            if not type -q tar
+                echo "Error: tar is required" >&2
+                return 1
+            end
+            echo "Extracting $archive to $dest..."
+            tar -xf $archive -C $dest
+        case '*.zip'
+            if not type -q unzip
+                echo "Error: unzip is required" >&2
+                return 1
+            end
+            echo "Extracting $archive to $dest..."
+            unzip -q $archive -d $dest
+        case '*.7z'
+            if not type -q 7z
+                echo "Error: 7z is required" >&2
+                return 1
+            end
+            echo "Extracting $archive to $dest..."
+            7z x $archive -o$dest -y >/dev/null
+        case '*.rar'
+            if not type -q unrar
+                echo "Error: unrar is required" >&2
+                return 1
+            end
+            echo "Extracting $archive to $dest..."
+            unrar x $archive $dest >/dev/null
+        case '*.gz'
+            if not type -q gunzip
+                echo "Error: gunzip is required" >&2
+                return 1
+            end
+            echo "Extracting $archive to $dest..."
+            gunzip -c $archive > "$dest/$name"
+        case '*.bz2'
+            if not type -q bunzip2
+                echo "Error: bunzip2 is required" >&2
+                return 1
+            end
+            echo "Extracting $archive to $dest..."
+            bunzip2 -c $archive > "$dest/$name"
+        case '*.xz'
+            if not type -q unxz
+                echo "Error: unxz is required" >&2
+                return 1
+            end
+            echo "Extracting $archive to $dest..."
+            unxz -c $archive > "$dest/$name"
+        case '*'
+            echo "Error: Unsupported archive format: $archive" >&2
+            echo "Supported: zip, tar, tar.gz, tar.bz2, tar.xz, 7z, rar, gz, bz2, xz" >&2
+            return 1
+    end
+    
+    if test $status -eq 0
+        echo "✅ Extracted successfully to $dest"
+    else
+        echo "Error: Extraction failed" >&2
+        return 1
+    end
+end
+
+# --- Create directory and cd into it ---
+function mkcd
+    if count $argv -eq 0
+        echo "Usage: mkcd <directory>" >&2
+        return 1
+    end
+    
+    set -l dir $argv[1]
+    
+    if test -e $dir -a ! -d $dir
+        echo "Error: '$dir' exists but is not a directory" >&2
+        return 1
+    end
+    
+    if not test -d $dir
+        if not mkdir -p $dir
+            echo "Error: Failed to create directory '$dir'" >&2
+            return 1
+        end
+    end
+    
+    cd $dir
+end
+
+# --- Find process by name ---
+function psgrep
+    if count $argv -eq 0
+        echo "Usage: psgrep <process_name>" >&2
+        return 1
+    end
+    
+    if not type -q ps
+        echo "Error: ps is required" >&2
+        return 1
+    end
+    
+    if type -q pgrep
+        pgrep -af $argv[1]
+    else
+        ps aux | grep -v grep | grep $argv[1]
+    end
+end
+
+# --- Disk usage for current directory ---
+function duh
+    if not type -q du
+        echo "Error: du is required" >&2
+        return 1
+    end
+    
+    set -l path "."
+    if count $argv > 0
+        set path $argv[1]
+    end
+    
+    if not test -e $path
+        echo "Error: Path '$path' does not exist" >&2
+        return 1
+    end
+    
+    # Use human-readable format, sort by size
+    if type -q sort
+        du -h $path | sort -hr | head -20
+    else
+        du -h $path
+    end
+end
+
+# --- Find large files ---
+function findlarge
+    if not type -q find
+        echo "Error: find is required" >&2
+        return 1
+    end
+    
+    set -l size "100M"
+    set -l path "."
+    
+    if count $argv > 0
+        set size $argv[1]
+    end
+    if count $argv > 1
+        set path $argv[2]
+    end
+    
+    if not test -d $path
+        echo "Error: Path '$path' is not a directory" >&2
+        return 1
+    end
+    
+    echo "Finding files larger than $size in $path..."
+    find $path -type f -size +$size -exec ls -lh {} \; 2>/dev/null | awk '{print $5, $9}' | sort -hr
+end
+
+# --- Quick project finder/launcher ---
+function proj
+    if not type -q fzf
+        echo "Error: fzf is required" >&2
+        return 1
+    end
+    
+    # Common project directories
+    set -l search_dirs $HOME/projects $HOME/dev $HOME/development $HOME/code $HOME/src
+    set -l base_dir $HOME
+    
+    if count $argv > 0
+        set base_dir $argv[1]
+    end
+    
+    # Build search paths
+    set -l search_paths $base_dir
+    for dir in $search_dirs
+        if test -d $dir
+            set search_paths $search_paths $dir
+        end
+    end
+    
+    # Find directories that look like projects (contain .git, package.json, etc.)
+    set -l projects
+    for dir in $search_paths
+        if test -d $dir
+            set -l found (find $dir -maxdepth 3 -type d \( -name '.git' -o -name 'node_modules' -o -name 'package.json' -o -name 'Cargo.toml' -o -name 'go.mod' -o -name 'requirements.txt' \) -prune -o -type d -print 2>/dev/null | head -50)
+            set projects $projects $found
+        end
+    end
+    
+    # Use fzf to select
+    set -l selected (printf '%s\n' $projects | fzf --height 40% --preview 'ls -la {} 2>/dev/null | head -20')
+    
+    if test -n "$selected" -a -d "$selected"
+        cd "$selected"
+        echo "📁 Switched to: $selected"
+    end
 end
