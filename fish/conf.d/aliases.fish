@@ -89,7 +89,11 @@ alias gswc='git switch -c'
 # I prefer explicit safety helpers. These override the system defaults — remove them if you disagree.
 alias cp='cpc'
 alias mv='mvc'
-alias rm='trash'
+# Use a wrapper function instead of direct alias to ensure glob expansion works
+function rm --wraps=trash
+    # Fish expands globs before function calls, so this should work
+    trash $argv
+end
 alias cls='clear'
 
 # --- Compression ---

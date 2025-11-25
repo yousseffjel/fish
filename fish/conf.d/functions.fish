@@ -140,21 +140,12 @@ function trash
         end
     end
     
-    # If no files after filtering, try to expand globs from current directory
-    # Fish expands globs before aliases, but if glob doesn't match, it might not pass anything
+    # If no files after filtering flags, show usage
     if count $files -eq 0
-        # Check if we're being called with a glob pattern that didn't expand
-        # This handles the case where Fish doesn't expand unmatched globs
-        # We'll try to expand common patterns from the current directory
-        set -l cwd (pwd)
-        set -l potential_matches (find "$cwd" -maxdepth 1 -type d -name 'fish_backup_*' 2>/dev/null)
-        if test (count $potential_matches) -gt 0
-            set files $potential_matches
-        else
-            echo "Usage: trash file [file2 ...]" >&2
-            echo "Note: Flags like -rf are ignored. If using globs (like fish_*), ensure files exist." >&2
-            return 1
-        end
+        echo "Usage: trash file [file2 ...]" >&2
+        echo "Note: Flags like -rf are ignored. If using globs (like fish_*), ensure files exist." >&2
+        echo "Tip: If globs don't expand, try: trash (ls fish_*)" >&2
+        return 1
     end
     
     # Expand glob patterns manually if they contain wildcards
