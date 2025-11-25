@@ -30,10 +30,10 @@ function ultrapro_doctor
     # Fisher
     if functions -q fisher
         echo "[ok] fisher installed"
-        # Check if Fisher plugins are actually installed
+        # Check if Fisher plugins are actually installed (optimized: read first line only)
         if test -f "$HOME/.config/fish/fish_plugins"
-            set -l installed_plugins (cat "$HOME/.config/fish/fish_plugins" 2>/dev/null | string trim)
-            if test -n "$installed_plugins"
+            set -l first_line (head -n 1 "$HOME/.config/fish/fish_plugins" 2>/dev/null | string trim)
+            if test -n "$first_line"
                 echo "[ok] fisher plugins file exists"
             else
                 echo "[warn] fisher plugins file is empty"
@@ -104,7 +104,12 @@ function ultrapro_doctor
     if test -L $cfg
         if type -q readlink
             set -l tgt (readlink -f $cfg)
-            echo "[ok] $cfg is a symlink -> $tgt"
+            if test -e $tgt
+                echo "[ok] $cfg is a symlink -> $tgt (target exists)"
+            else
+                echo "[warn] $cfg is a symlink -> $tgt (target does not exist - broken link)"
+                set issues 1
+            end
         else
             echo "[ok] $cfg is a symlink"
         end
@@ -113,11 +118,29 @@ function ultrapro_doctor
         set issues 1
     end
 
+    # Startup time (if available)
+    if set -q __fish_start_time
+        set -l end_time (date +%s.%N)
+        set -l startup_time (math "$end_time - $__fish_start_time")
+        printf "[ok] startup time: %.3fs\n" $startup_time
+    end
+    
     if test $issues -eq 0
         echo "== All checks passed =="
         return 0
     else
         echo "== Completed with warnings =="
         return 1
+    end
+end
+
+# --- Show startup time ---
+function startup_time
+    if set -q __fish_start_time
+        set -l end_time (date +%s.%N)
+        set -l startup_time (math "$end_time - $__fish_start_time")
+        printf "Fish startup time: %.3fs\n" $startup_time
+    else
+        echo "Startup time tracking not available (restart shell to enable)" >&2
     end
 end
