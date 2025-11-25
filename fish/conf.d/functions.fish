@@ -100,7 +100,7 @@ function mvc
         if test -f $src
             set -l file_size (stat -f%z $src 2>/dev/null; or stat -c%s $src 2>/dev/null; or echo "unknown")
             echo "Moving $src → $dest (size: $file_size bytes)"
-            if pv $src > $dest_file
+            if pv $src >$dest_file 2>/dev/null
                 if not command rm $src
                     echo "Warning: File copied but source deletion failed" >&2
                 else
