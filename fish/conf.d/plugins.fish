@@ -6,6 +6,12 @@
 
 # I keep Fisher paths at their defaults so functions/conf.d work in every session.
 
+# Plugin Versioning Strategy:
+# - Tide is pinned to v6 (@v6) for stability and compatibility
+# - Other plugins use latest stable versions (no version pinning)
+# - To pin a plugin version, add @version suffix: plugin@v1.2.3
+# - Check plugin repositories for latest stable versions
+
 # Reference list I like to keep handy (uncomment to use):
 # set -l plugins \
 #     jorgebucaran/fisher \
@@ -21,3 +27,9 @@
 
 # To install later, I just run:
 # fisher install <plugins...>
+#
+# To update plugins to latest versions:
+# fisher update
+#
+# To pin a plugin to a specific version:
+# fisher install plugin@v1.2.3
