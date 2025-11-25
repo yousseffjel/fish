@@ -121,10 +121,10 @@ function ultrapro_doctor
 
     # Symlink status
     set -l cfg "$HOME/.config/fish/config.fish"
-    if test -L $cfg
+    if test -L "$cfg"
         if type -q readlink
-            set -l tgt (readlink -f $cfg)
-            if test -e $tgt
+            set -l tgt (readlink -f "$cfg")
+            if test -e "$tgt"
                 echo "[ok] $cfg is a symlink -> $tgt (target exists)"
             else
                 echo "[warn] $cfg is a symlink -> $tgt (target does not exist - broken link)"

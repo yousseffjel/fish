@@ -41,7 +41,7 @@ function clean
     if type -q pacman
         set orphans (pacman -Qtdq)
         if test -n "$orphans"
-            sudo pacman -Rns $orphans
+            sudo pacman -Rns $orphans  # $orphans is a list, intentionally unquoted
         else
             echo "No orphaned packages to remove"
         end

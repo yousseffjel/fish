@@ -213,9 +213,9 @@ function fcd
             return 1
         end
     end
-    set dir (find $search_path -type d -maxdepth 10 2>/dev/null | fzf)
+    set dir (find "$search_path" -type d -maxdepth 10 2>/dev/null | fzf)
     if test -n "$dir"
-        if test -d $dir
+        if test -d "$dir"
             cd "$dir"
         else
             echo "Error: Selected directory '$dir' does not exist" >&2
@@ -354,19 +354,19 @@ function mkcd
     
     set -l dir $argv[1]
     
-    if test -e $dir -a ! -d $dir
+    if test -e "$dir" -a ! -d "$dir"
         echo "Error: '$dir' exists but is not a directory" >&2
         return 1
     end
     
-    if not test -d $dir
-        if not mkdir -p $dir
+    if not test -d "$dir"
+        if not mkdir -p "$dir"
             echo "Error: Failed to create directory '$dir'" >&2
             return 1
         end
     end
     
-    cd $dir
+    cd "$dir"
 end
 
 # --- Find process by name ---
