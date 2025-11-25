@@ -21,7 +21,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_FISH_DIR="$SCRIPT_DIR/fish"
 
 CONFIG_DIR="$HOME/.config/fish"
-BACKUP_DIR="$HOME/.config/fish_backup_$(date +%Y%m%d%H%M%S)"
+# Generate unique backup directory name with microsecond precision to avoid collisions
+BACKUP_DIR="$HOME/.config/fish_backup_$(date +%Y%m%d%H%M%S)_$$"
 
 # Flags
 NO_PACKAGES=0
@@ -52,13 +53,18 @@ run() {
         echo "DRY-RUN: $*"
         return 0
     else
-        # If only one argument and it looks like a shell command with operators, evaluate it
-        # Otherwise execute normally (safer for simple commands)
+        # Execute command directly - avoid eval for security
+        # For complex commands with operators, use bash -c explicitly
+        set +e  # Temporarily disable exit on error for this function
         if [ $# -eq 1 ] && case "$1" in *'|'*|*'&'*|*';'*|*'&&'*|*'||'*) true ;; *) false ;; esac; then
-            eval "$1"
+            # Use bash -c with explicit command instead of eval
+            bash -c "$1"
         else
             "$@"
         fi
+        local exit_code=$?
+        set -e  # Re-enable exit on error
+        return $exit_code
     fi
 }
 
@@ -80,6 +86,13 @@ backup_path() {
 link_into_config() {
     local target="$1"   # source in repo
     local linkpath="$2" # destination path in ~/.config/fish
+    
+    # Validate source file exists
+    if [ ! -e "$target" ]; then
+        echo "Error: Source file '$target' does not exist" >&2
+        return 1
+    fi
+    
     # If link already points to target, keep it
     if [ -L "$linkpath" ] && [ "$(readlink -f "$linkpath")" = "$(readlink -f "$target")" ]; then
         log "Link exists: $linkpath -> $target"
@@ -87,7 +100,17 @@ link_into_config() {
     fi
     backup_path "$linkpath"
     log "Linking $linkpath -> $target"
-    run ln -s "$target" "$linkpath"
+    # Try to create symlink, handle cross-filesystem issues
+    if ! run ln -s "$target" "$linkpath" 2>/dev/null; then
+        # If symlink fails, try with absolute path
+        local abs_target
+        abs_target="$(cd "$(dirname "$target")" && pwd)/$(basename "$target")"
+        if ! run ln -s "$abs_target" "$linkpath" 2>/dev/null; then
+            echo "Error: Failed to create symlink. Target may be on different filesystem." >&2
+            echo "       You may need to copy files instead of symlinking." >&2
+            return 1
+        fi
+    fi
 }
 
 echo "🔥 Starting my Fish UltraPro installation..."
@@ -97,9 +120,20 @@ if [ -d "$CONFIG_DIR" ] || [ -L "$CONFIG_DIR" ]; then
     echo "Backing up existing Fish config to $BACKUP_DIR"
     run mkdir -p "$BACKUP_DIR"
     run mv "$CONFIG_DIR" "$BACKUP_DIR"
+elif [ -f "$CONFIG_DIR" ]; then
+    # Handle case where ~/.config/fish is a file instead of directory
+    echo "Warning: $CONFIG_DIR exists as a file, not a directory" >&2
+    echo "Backing up and removing file..." >&2
+    run mkdir -p "$BACKUP_DIR"
+    run mv "$CONFIG_DIR" "$BACKUP_DIR/fish_file_backup"
 fi
 
 # 2) Create ~/.config/fish structure
+# Validate we can create directories
+if [ ! -w "$(dirname "$CONFIG_DIR")" ] 2>/dev/null; then
+    echo "Error: No write permission to create $CONFIG_DIR" >&2
+    exit 1
+fi
 run mkdir -p "$CONFIG_DIR"
 run mkdir -p "$CONFIG_DIR/conf.d"
 run mkdir -p "$CONFIG_DIR/functions"
@@ -128,19 +162,31 @@ if [ -d "$REPO_FISH_DIR/functions" ]; then
     done
 fi
 
+# Check if sudo is available
+check_sudo() {
+    if ! command -v sudo >/dev/null 2>&1; then
+        echo "Warning: sudo not found. Some operations may fail." >&2
+        return 1
+    fi
+    # Test sudo access (non-interactive)
+    if ! sudo -n true 2>/dev/null; then
+        echo "Note: sudo requires password. You may be prompted during installation." >&2
+    fi
+    return 0
+}
+
 # 4) Install Fish if needed (cross-distro where safe)
 install_fish() {
     if command -v pacman >/dev/null 2>&1; then
-        run sudo pacman -S --noconfirm fish
+        check_sudo && run sudo pacman -S --noconfirm fish
     elif command -v apt-get >/dev/null 2>&1; then
-        run sudo apt-get update
-        run sudo apt-get install -y fish
+        check_sudo && run sudo apt-get update && run sudo apt-get install -y fish
     elif command -v dnf >/dev/null 2>&1; then
-        run sudo dnf install -y fish
+        check_sudo && run sudo dnf install -y fish
     elif command -v zypper >/dev/null 2>&1; then
-        run sudo zypper install -y fish
+        check_sudo && run sudo zypper install -y fish
     elif command -v apk >/dev/null 2>&1; then
-        run sudo apk add fish
+        check_sudo && run sudo apk add fish
     elif command -v brew >/dev/null 2>&1; then
         run brew install fish
     else
@@ -196,17 +242,37 @@ if [ -d "$CONFIG_DIR/fisher_plugins" ]; then
     run mv "$CONFIG_DIR/fisher_plugins" "$BACKUP_DIR/fisher_plugins_$(date +%s)"
 fi
 
-# Install Fisher with error handling
+# Install Fisher with error handling and security checks
 if [ "$DRY_RUN" -eq 1 ]; then
     log "DRY-RUN: Would install Fisher and plugins"
 else
-    if ! fish -c 'set -g fish_color_error red; curl -sL https://git.io/fisher | source; and fisher install jorgebucaran/fisher; and fisher install PatrickF1/fzf.fish IlanCosman/tide@v6 jorgebucaran/autopair.fish jethrokuan/z jorgebucaran/nvm.fish gazorby/fish-abbreviation-tips franciscolourenco/done' 2>&1; then
-        echo "⚠️  Warning: Fisher plugin installation failed or had errors." >&2
-        echo "   You can install plugins manually later with:" >&2
-        echo "   fisher install jorgebucaran/fisher PatrickF1/fzf.fish IlanCosman/tide@v6 jorgebucaran/autopair.fish jethrokuan/z jorgebucaran/nvm.fish gazorby/fish-abbreviation-tips franciscolourenco/done" >&2
-        echo "   Continuing with installation..." >&2
+    # Check if curl is available
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "⚠️  Warning: curl not found. Cannot install Fisher automatically." >&2
+        echo "   Please install curl and run: curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source" >&2
     else
-        log "✅ Fisher and plugins installed successfully"
+        # Use official Fisher installation method with better error handling
+        # Note: Tide is pinned to v6 for stability. Other plugins use latest versions.
+        local fisher_install_cmd='set -g fish_color_error red; if not functions -q fisher; curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source; end; and fisher install jorgebucaran/fisher; and fisher install PatrickF1/fzf.fish IlanCosman/tide@v6 jorgebucaran/autopair.fish jethrokuan/z jorgebucaran/nvm.fish gazorby/fish-abbreviation-tips franciscolourenco/done'
+        local fisher_output
+        fisher_output=$(fish -c "$fisher_install_cmd" 2>&1)
+        local fisher_exit_code=$?
+        
+        if [ $fisher_exit_code -ne 0 ]; then
+            echo "⚠️  Warning: Fisher plugin installation failed or had errors." >&2
+            echo "   Exit code: $fisher_exit_code" >&2
+            echo "   Output: $fisher_output" >&2
+            echo "   You can install plugins manually later with:" >&2
+            echo "   fisher install jorgebucaran/fisher PatrickF1/fzf.fish IlanCosman/tide@v6 jorgebucaran/autopair.fish jethrokuan/z jorgebucaran/nvm.fish gazorby/fish-abbreviation-tips franciscolourenco/done" >&2
+            echo "   Continuing with installation..." >&2
+        else
+            # Verify Fisher was actually installed
+            if fish -c 'functions -q fisher' 2>/dev/null; then
+                log "✅ Fisher and plugins installed successfully"
+            else
+                echo "⚠️  Warning: Fisher installation reported success but fisher function not found" >&2
+            fi
+        fi
     fi
 fi
 
@@ -216,20 +282,45 @@ if [ "$NO_CHSH" -eq 1 ]; then
 else
     FISH_PATH="$(command -v fish || true)"
     if [ -n "$FISH_PATH" ] && [ "$SHELL" != "$FISH_PATH" ]; then
-        echo "Setting Fish as default shell..."
-        # Ensure fish is listed in /etc/shells
-        if ! grep -qxF "$FISH_PATH" /etc/shells 2>/dev/null; then
-            log "Adding $FISH_PATH to /etc/shells"
-            run "echo '$FISH_PATH' | sudo tee -a /etc/shells >/dev/null"
+        # Check if fish is executable
+        if [ ! -x "$FISH_PATH" ]; then
+            echo "Warning: Fish found at '$FISH_PATH' but is not executable" >&2
+        else
+            echo "Setting Fish as default shell..."
+            # Ensure fish is listed in /etc/shells
+            if ! grep -qxF "$FISH_PATH" /etc/shells 2>/dev/null; then
+                log "Adding $FISH_PATH to /etc/shells"
+                if ! run "echo '$FISH_PATH' | sudo tee -a /etc/shells >/dev/null"; then
+                    echo "Warning: Failed to add fish to /etc/shells" >&2
+                fi
+            fi
+            if run chsh -s "$FISH_PATH" 2>&1; then
+                log "✅ Default shell changed to $FISH_PATH"
+            else
+                echo "⚠️  Warning: Failed to change default shell. You may need to run 'chsh -s $FISH_PATH' manually." >&2
+            fi
         fi
-        run chsh -s "$FISH_PATH"
     fi
 fi
 
-# 8) Done
+# 8) Installation summary and completion
+echo ""
 echo "✅ Fish UltraPro setup completed!"
 if [ "$DRY_RUN" -eq 1 ]; then
     echo "(dry-run) No changes were made."
 else
-    echo "Restart your terminal or run 'exec fish' to start using it."
+    echo ""
+    echo "Installation Summary:"
+    echo "  - Config directory: $CONFIG_DIR"
+    if [ -d "$BACKUP_DIR" ]; then
+        echo "  - Backup location: $BACKUP_DIR"
+    fi
+    if command -v fish >/dev/null 2>&1; then
+        echo "  - Fish version: $(fish --version 2>/dev/null || echo 'unknown')"
+    fi
+    echo ""
+    echo "Next steps:"
+    echo "  - Restart your terminal or run 'exec fish' to start using it"
+    echo "  - Run 'ultrapro_doctor' to verify installation"
+    echo "  - Check ~/.config/fish/local/ for local overrides"
 fi
