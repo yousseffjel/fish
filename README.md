@@ -12,6 +12,7 @@ If this saves you time, please star the repo — it helps others find it, too.
 
 -   Mirror of `~/.config/fish` in `fish/` for simple, transparent config
 -   Batteries included: Fisher, Tide v6, fzf.fish, autopair, z, nvm, abbreviation-tips, done
+-   **Plugin Versioning**: Tide is pinned to v6 for stability; other plugins use latest stable versions
 -   Symlink-based install (safe, reversible), cross-distro packages, optional flags
 -   Lean prompt tuned for speed and clarity without an interactive wizard
 -   Optional Classic preset for Tide (auto-applied once, skip-able)
@@ -23,6 +24,7 @@ If this saves you time, please star the repo — it helps others find it, too.
 -   [Tide prompt (v6) – fast, readable, reliable](#tide-prompt-v6--fast-readable-reliable)
     -   [Classic preset (auto-applied once)](#classic-preset-auto-applied-once)
 -   [Local overrides](#local-overrides)
+-   [Utility Functions](#utility-functions)
 -   [Installer flags](#installer-flags)
 -   [Troubleshooting](#troubleshooting)
 -   [Health check](#health-check)
@@ -61,7 +63,7 @@ The repo mirrors `~/.config/fish`:
         -   `env.fish` — environment and PATH
         -   `plugins.fish` — plugin configuration (no auto-install on startup)
         -   `aliases.fish` — common aliases
-        -   `functions.fish` — lightweight utility functions
+        -   `functions.fish` — lightweight utility functions (cpc, mvc, trash, extract, mkcd, etc.)
         -   `prompt.fish` — Tide Classic preset (applied once, optional)
         -   `local-overrides.fish` — host-specific overrides auto-sourced
     -   `functions/` — per-function autoloads (e.g. `ultrapro_doctor`)
@@ -147,6 +149,15 @@ functions -e rm 2>/dev/null
 fish_add_path /opt/special/bin
 ```
 
+## Docker Systemd Aliases
+
+The setup includes Docker service management aliases for systemd-based systems:
+
+-   `dockeron` — Start and enable Docker service (requires systemd and sudo)
+-   `dockeroff` — Stop and disable Docker service (requires systemd and sudo)
+
+**Note**: These are functions (not aliases) that include error handling. They will report errors if systemd is not available or if operations fail.
+
 ## Installer flags
 
 -   `--no-packages` — skip installing system packages
@@ -155,18 +166,64 @@ fish_add_path /opt/special/bin
 
 ## Troubleshooting
 
--   Tide error (Unknown command: _tide_2_line_prompt_)
+-   **Tide error (Unknown command: _tide_2_line_prompt_)**
 
     -   Start a new Fish session (`exec fish`) after install
     -   Verify: `type -q tide; and echo tide ok || echo tide missing`
     -   Reinstall Tide if functions are missing: `fisher reinstall IlanCosman/tide@v6; and exec fish`
 
--   Fisher conflicts during install
+-   **Fisher conflicts during install**
 
-    -   The installer backs up legacy `~/.config/fish/fisher_plugins` automatically; re-run after it’s moved
+    -   The installer backs up legacy `~/.config/fish/fisher_plugins` automatically; re-run after it's moved
 
--   Debian/Ubuntu `bat` is `batcat`
+-   **Debian/Ubuntu `bat` is `batcat`**
+
     -   This config auto-detects and aliases accordingly (see `aliases.fish`)
+
+-   **Package installation failures**
+
+    -   Check if `sudo` is configured correctly: `sudo -v`
+    -   Verify package manager is working: `sudo pacman -Sy` (or equivalent for your distro)
+    -   Some packages may not be available on all distros (non-fatal)
+
+-   **Symlink issues**
+
+    -   Verify symlinks: `ls -la ~/.config/fish/config.fish`
+    -   Check if target exists: `readlink -f ~/.config/fish/config.fish`
+    -   Run `ultrapro_doctor` to diagnose issues
+
+-   **Functions not working (cpc, mvc, etc.)**
+
+    -   Check if required tools are installed: `type -q pv; and type -q tar`
+    -   Install missing tools: `sudo pacman -S pv tar` (or equivalent)
+
+-   **Docker aliases not working**
+
+    -   Verify systemd is available: `type -q systemctl`
+    -   Check Docker service: `systemctl status docker`
+    -   Ensure you have sudo permissions for systemctl
+
+-   **Permission errors**
+
+    -   Check write permissions: `test -w ~/.config; and echo "writable" || echo "not writable"`
+    -   Verify home directory permissions: `ls -ld ~`
+
+## Utility Functions
+
+The setup includes several utility functions:
+
+-   **`cpc <source> <dest>`** — Copy files/directories with progress bar
+-   **`mvc <source> <dest>`** — Move files/directories with progress bar
+-   **`trash <file>`** — Move files to trash instead of deleting
+-   **`etrash`** — Empty trash (with confirmation)
+-   **`fcd [path]`** — Fuzzy find and cd into directory
+-   **`extract <archive> [dest]`** — Auto-extract archives (zip, tar, 7z, etc.)
+-   **`mkcd <dir>`** — Create directory and cd into it
+-   **`psgrep <name>`** — Find processes by name
+-   **`duh [path]`** — Disk usage (human-readable, sorted)
+-   **`findlarge [size] [path]`** — Find large files (default: 100M)
+-   **`proj [base_dir]`** — Quick project finder/launcher using fzf
+-   **`startup_time`** — Show Fish shell startup time
 
 ## Health check
 
@@ -182,12 +239,15 @@ It validates Fish version, Fisher/Tide presence, common tools, and that configs 
 
 Because the installer uses symlinks and creates a timestamped backup, you can revert safely:
 
+⚠️ **Warning**: The uninstall process uses `rm -rf` which permanently deletes files. Make sure you have a backup before proceeding.
+
 ```fish
 # Find the most recent backup directory
 set backup (ls -d ~/.config/fish_backup_* ^/dev/null | tail -n 1)
 test -n "$backup"; and echo "Restoring from $backup"; or echo "No backup found"
 
 # Remove current config and restore backup
+# CAUTION: This permanently deletes ~/.config/fish
 test -n "$backup"; and rm -rf ~/.config/fish; and mv $backup ~/.config/fish
 ```
 
