@@ -253,10 +253,9 @@ else
     else
         # Use official Fisher installation method with better error handling
         # Note: Tide is pinned to v6 for stability. Other plugins use latest versions.
-        local fisher_install_cmd='set -g fish_color_error red; if not functions -q fisher; curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source; end; and fisher install jorgebucaran/fisher; and fisher install PatrickF1/fzf.fish IlanCosman/tide@v6 jorgebucaran/autopair.fish jethrokuan/z jorgebucaran/nvm.fish gazorby/fish-abbreviation-tips franciscolourenco/done'
-        local fisher_output
+        fisher_install_cmd='set -g fish_color_error red; if not functions -q fisher; curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source; end; and fisher install jorgebucaran/fisher; and fisher install PatrickF1/fzf.fish IlanCosman/tide@v6 jorgebucaran/autopair.fish jethrokuan/z jorgebucaran/nvm.fish gazorby/fish-abbreviation-tips franciscolourenco/done'
         fisher_output=$(fish -c "$fisher_install_cmd" 2>&1)
-        local fisher_exit_code=$?
+        fisher_exit_code=$?
         
         if [ $fisher_exit_code -ne 0 ]; then
             echo "⚠️  Warning: Fisher plugin installation failed or had errors." >&2
