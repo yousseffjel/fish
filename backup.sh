@@ -97,7 +97,9 @@ restore() {
     if [ -d "$CONFIG_DIR" ]; then
         echo "Backing up current config to: $current_backup"
         mkdir -p "$current_backup"
-        cp -r "$CONFIG_DIR"/* "$current_backup/" 2>/dev/null || true
+        if [ -n "$(ls -A "$CONFIG_DIR" 2>/dev/null)" ]; then
+            cp -r "$CONFIG_DIR"/* "$current_backup/" 2>/dev/null || true
+        fi
     fi
     
     # Restore from backup
