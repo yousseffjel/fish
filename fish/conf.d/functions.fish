@@ -133,18 +133,24 @@ end
 # --- Trash management ---
 function trash
     # Filter out common rm flags (ignore them, like -rf, -r, -f, etc.)
-    set -l files
+    # Use a different approach: build array explicitly
+    set files
     for arg in $argv
+        # Skip flags (arguments starting with -)
         if not string match -q -- '-*' "$arg"
             set files $files "$arg"
         end
     end
     
     # If no files after filtering flags, show usage
-    if count $files -eq 0
-        echo "Usage: trash file [file2 ...]" >&2
-        echo "Note: Flags like -rf are ignored. If using globs (like fish_*), ensure files exist." >&2
-        echo "Tip: If globs don't expand, try: trash (ls fish_*)" >&2
+    if test (count $files) -eq 0
+        if test (count $argv) -gt 0
+            echo "Usage: trash file [file2 ...]" >&2
+            echo "Note: Only flags were provided (like -rf). Please provide file names." >&2
+        else
+            echo "Usage: trash file [file2 ...]" >&2
+            echo "Note: Flags like -rf are ignored. If using globs (like fish_*), ensure files exist." >&2
+        end
         return 1
     end
     
