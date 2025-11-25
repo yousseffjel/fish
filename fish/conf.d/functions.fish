@@ -14,18 +14,18 @@ function cpc
     for src in $argv[1..-2]
         set dest $argv[-1]
         # Validate source exists
-        if not test -e $src
+        if not test -e "$src"
             echo "Error: Source '$src' does not exist" >&2
             continue
         end
         # Validate destination is a directory or create it
-        if not test -d $dest
+        if not test -d "$dest"
             echo "Error: Destination '$dest' is not a directory" >&2
             return 1
         end
         # Check if destination file already exists
         set dest_file "$dest/"(path basename $src)
-        if test -e $dest_file
+        if test -e "$dest_file"
             echo "Warning: Destination '$dest_file' already exists. Overwriting..." >&2
         end
         # Validate required tools
@@ -33,21 +33,21 @@ function cpc
             echo "Error: pv (pipe viewer) is required but not installed" >&2
             return 1
         end
-        if test -f $src
-            set -l file_size (stat -f%z $src 2>/dev/null; or stat -c%s $src 2>/dev/null; or echo "unknown")
+        if test -f "$src"
+            set -l file_size (stat -f%z "$src" 2>/dev/null; or stat -c%s "$src" 2>/dev/null; or echo "unknown")
             echo "Copying $src → $dest (size: $file_size bytes)"
-            if not pv $src >$dest_file 2>/dev/null
+            if not pv "$src" >$dest_file 2>/dev/null
                 echo "Error: Failed to copy file" >&2
                 return 1
             end
             echo "✅ Copied successfully"
-        else if test -d $src
+        else if test -d "$src"
             echo "Copying directory $src → $dest"
             if not type -q tar
                 echo "Error: tar is required but not installed" >&2
                 return 1
             end
-            if not tar cf - $src 2>/dev/null | pv 2>/dev/null | tar xf - -C $dest 2>/dev/null
+            if not tar cf - "$src" 2>/dev/null | pv 2>/dev/null | tar xf - -C "$dest" 2>/dev/null
                 echo "Error: Failed to copy directory" >&2
                 return 1
             end
@@ -70,26 +70,26 @@ function mvc
     for src in $argv[1..-2]
         set dest $argv[-1]
         # Validate source exists and is readable
-        if not test -e $src
+        if not test -e "$src"
             echo "Error: Source '$src' does not exist" >&2
             continue
         end
-        if not test -r $src
+        if not test -r "$src"
             echo "Error: Source '$src' is not readable" >&2
             continue
         end
         # Validate destination is a directory
-        if not test -d $dest
+        if not test -d "$dest"
             echo "Error: Destination '$dest' is not a directory" >&2
             return 1
         end
-        if not test -w $dest
+        if not test -w "$dest"
             echo "Error: Destination '$dest' is not writable" >&2
             return 1
         end
         # Check if destination file already exists
         set dest_file "$dest/"(path basename $src)
-        if test -e $dest_file
+        if test -e "$dest_file"
             echo "Warning: Destination '$dest_file' already exists. Overwriting..." >&2
         end
         # Validate required tools
@@ -97,11 +97,11 @@ function mvc
             echo "Error: pv (pipe viewer) is required but not installed" >&2
             return 1
         end
-        if test -f $src
-            set -l file_size (stat -f%z $src 2>/dev/null; or stat -c%s $src 2>/dev/null; or echo "unknown")
+        if test -f "$src"
+            set -l file_size (stat -f%z "$src" 2>/dev/null; or stat -c%s "$src" 2>/dev/null; or echo "unknown")
             echo "Moving $src → $dest (size: $file_size bytes)"
-            if pv $src >$dest_file 2>/dev/null
-                if not command rm $src
+            if pv "$src" >$dest_file 2>/dev/null
+                if not command rm "$src"
                     echo "Warning: File copied but source deletion failed" >&2
                 else
                     echo "✅ Moved successfully"
@@ -110,14 +110,14 @@ function mvc
                 echo "Error: Failed to move file. Source preserved." >&2
                 return 1
             end
-        else if test -d $src
+        else if test -d "$src"
             echo "Moving directory $src → $dest"
             if not type -q tar
                 echo "Error: tar is required but not installed" >&2
                 return 1
             end
-            if tar cf - $src 2>/dev/null | pv 2>/dev/null | tar xf - -C $dest 2>/dev/null
-                if not command rm -rf $src
+            if tar cf - "$src" 2>/dev/null | pv 2>/dev/null | tar xf - -C "$dest" 2>/dev/null
+                if not command rm -rf "$src"
                     echo "Warning: Directory copied but source deletion failed" >&2
                 else
                     echo "✅ Moved successfully"
@@ -152,11 +152,11 @@ function trash
             echo "Warning: Empty argument, skipping" >&2
             continue
         end
-        if not test -e $f
+        if not test -e "$f"
             echo "Warning: '$f' does not exist, skipping" >&2
             continue
         end
-        if not test -w (dirname $f)
+        if not test -w (dirname "$f")
             echo "Error: No write permission to remove '$f'" >&2
             continue
         end
@@ -208,7 +208,7 @@ function fcd
     if count $argv > 0
         set search_path $argv[1]
         # Validate search path exists
-        if not test -d $search_path
+        if not test -d "$search_path"
             echo "Error: Search path '$search_path' is not a directory" >&2
             return 1
         end
@@ -243,17 +243,17 @@ function extract
         set dest $argv[2]
     end
     
-    if not test -f $archive
+    if not test -f "$archive"
         echo "Error: Archive '$archive' does not exist" >&2
         return 1
     end
     
-    set -l basename (path basename $archive)
+    set -l basename (path basename "$archive")
     set -l name (string replace -r '\.[^.]*$' '' -- $basename)
     
     # Create destination directory if needed
-    if not test -d $dest
-        if not mkdir -p $dest
+    if not test -d "$dest"
+        if not mkdir -p "$dest"
             echo "Error: Failed to create destination directory '$dest'" >&2
             return 1
         end
@@ -400,7 +400,7 @@ function duh
         set path $argv[1]
     end
     
-    if not test -e $path
+    if not test -e "$path"
         echo "Error: Path '$path' does not exist" >&2
         return 1
     end
@@ -430,7 +430,7 @@ function findlarge
         set path $argv[2]
     end
     
-    if not test -d $path
+    if not test -d "$path"
         echo "Error: Path '$path' is not a directory" >&2
         return 1
     end
@@ -457,7 +457,7 @@ function proj
     # Build search paths
     set -l search_paths $base_dir
     for dir in $search_dirs
-        if test -d $dir
+        if test -d "$dir"
             set search_paths $search_paths $dir
         end
     end
