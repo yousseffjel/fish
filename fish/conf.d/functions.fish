@@ -267,70 +267,70 @@ function extract
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            tar -xjf $archive -C $dest
+            tar -xjf "$archive" -C "$dest" 2>/dev/null
         case '*.tar.gz' '*.tgz'
             if not type -q tar
                 echo "Error: tar is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            tar -xzf $archive -C $dest
+            tar -xzf "$archive" -C "$dest" 2>/dev/null
         case '*.tar.xz' '*.txz'
             if not type -q tar
                 echo "Error: tar is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            tar -xJf $archive -C $dest
+            tar -xJf "$archive" -C "$dest" 2>/dev/null
         case '*.tar'
             if not type -q tar
                 echo "Error: tar is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            tar -xf $archive -C $dest
+            tar -xf "$archive" -C "$dest" 2>/dev/null
         case '*.zip'
             if not type -q unzip
                 echo "Error: unzip is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            unzip -q $archive -d $dest
+            unzip -q "$archive" -d "$dest" 2>/dev/null
         case '*.7z'
             if not type -q 7z
                 echo "Error: 7z is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            7z x $archive -o$dest -y >/dev/null
+            7z x "$archive" -o"$dest" -y >/dev/null 2>&1
         case '*.rar'
             if not type -q unrar
                 echo "Error: unrar is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            unrar x $archive $dest >/dev/null
+            unrar x "$archive" "$dest" >/dev/null 2>&1
         case '*.gz'
             if not type -q gunzip
                 echo "Error: gunzip is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            gunzip -c $archive > "$dest/$name"
+            gunzip -c "$archive" > "$dest/$name" 2>/dev/null
         case '*.bz2'
             if not type -q bunzip2
                 echo "Error: bunzip2 is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            bunzip2 -c $archive > "$dest/$name"
+            bunzip2 -c "$archive" > "$dest/$name" 2>/dev/null
         case '*.xz'
             if not type -q unxz
                 echo "Error: unxz is required" >&2
                 return 1
             end
             echo "Extracting $archive to $dest..."
-            unxz -c $archive > "$dest/$name"
+            unxz -c "$archive" > "$dest/$name" 2>/dev/null
         case '*'
             echo "Error: Unsupported archive format: $archive" >&2
             echo "Supported: zip, tar, tar.gz, tar.bz2, tar.xz, 7z, rar, gz, bz2, xz" >&2
@@ -382,9 +382,9 @@ function psgrep
     end
     
     if type -q pgrep
-        pgrep -af $argv[1]
+        pgrep -af "$argv[1]"
     else
-        ps aux | grep -v grep | grep $argv[1]
+        ps aux | grep -v grep | grep -- "$argv[1]"
     end
 end
 
@@ -436,7 +436,7 @@ function findlarge
     end
     
     echo "Finding files larger than $size in $path..."
-    find $path -type f -size +$size -exec ls -lh {} \; 2>/dev/null | awk '{print $5, $9}' | sort -hr
+    find "$path" -type f -size +"$size" -exec ls -lh {} \; 2>/dev/null | awk '{print $5, $9}' | sort -hr
 end
 
 # --- Quick project finder/launcher ---

@@ -28,10 +28,15 @@ backup() {
         exit 1
     fi
     
-    if ! cp -r "$CONFIG_DIR"/* "$backup_dir/" 2>/dev/null; then
-        echo "Error: Failed to copy config files" >&2
-        rm -rf "$backup_dir"
-        exit 1
+    # Handle case where CONFIG_DIR might be empty or glob fails
+    if [ -n "$(ls -A "$CONFIG_DIR" 2>/dev/null)" ]; then
+        if ! cp -r "$CONFIG_DIR"/* "$backup_dir/" 2>/dev/null; then
+            echo "Error: Failed to copy config files" >&2
+            rm -rf "$backup_dir"
+            exit 1
+        fi
+    else
+        echo "Warning: Config directory is empty" >&2
     fi
     
     echo "✅ Backup created successfully: $backup_dir"
@@ -102,8 +107,14 @@ restore() {
     fi
     
     echo "Restoring from backup..."
-    if ! cp -r "$backup_dir"/* "$CONFIG_DIR/"; then
-        echo "Error: Failed to restore backup" >&2
+    # Handle case where backup_dir might be empty or glob fails
+    if [ -n "$(ls -A "$backup_dir" 2>/dev/null)" ]; then
+        if ! cp -r "$backup_dir"/* "$CONFIG_DIR/"; then
+            echo "Error: Failed to restore backup" >&2
+            exit 1
+        fi
+    else
+        echo "Error: Backup directory is empty" >&2
         exit 1
     fi
     
