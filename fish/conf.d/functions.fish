@@ -185,7 +185,7 @@ function trash
         end
     end
     
-    if count $expanded_files -eq 0
+    if test (count $expanded_files) -eq 0
         echo "No files to trash" >&2
         return 1
     end
