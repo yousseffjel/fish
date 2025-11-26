@@ -48,7 +48,8 @@ function cpc
                 end
             end
             echo "Copying $src → $dest_file (size: $file_size bytes)"
-            if not pv "$src" > "$dest_file" ^/dev/null
+            pv "$src" > "$dest_file" 2>/dev/null
+            if test $status -ne 0
                 echo "Error: Failed to copy file" >&2
                 return 1
             end
@@ -64,7 +65,7 @@ function cpc
                 echo "Error: tar is required but not installed" >&2
                 return 1
             end
-            if not tar cf - "$src" 2>/dev/null | pv ^/dev/null | tar xf - -C "$dest" 2>/dev/null
+            if not tar cf - "$src" 2>/dev/null | pv 2>/dev/null | tar xf - -C "$dest" 2>/dev/null
                 echo "Error: Failed to copy directory" >&2
                 return 1
             end
@@ -140,7 +141,7 @@ function mvc
                 echo "Error: tar is required but not installed" >&2
                 return 1
             end
-            if tar cf - "$src" 2>/dev/null | pv ^/dev/null | tar xf - -C "$dest" 2>/dev/null
+            if tar cf - "$src" 2>/dev/null | pv 2>/dev/null | tar xf - -C "$dest" 2>/dev/null
                 if not command rm -rf "$src"
                     echo "Warning: Directory copied but source deletion failed" >&2
                 else
