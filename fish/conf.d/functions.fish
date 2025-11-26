@@ -8,7 +8,7 @@
 # --- Copy with progress ---
 function cpc
     if count $argv < 2
-        echo "Usage: cpc source target_dir"
+        echo "Usage: cpc source [source2 ...] destination"
         return 1
     end
     for src in $argv[1..-2]
@@ -18,30 +18,47 @@ function cpc
             echo "Error: Source '$src' does not exist" >&2
             continue
         end
-        # Validate destination is a directory or create it
-        if not test -d "$dest"
-            echo "Error: Destination '$dest' is not a directory" >&2
-            return 1
-        end
-        # Check if destination file already exists
-        set dest_file "$dest/"(path basename $src)
-        if test -e "$dest_file"
-            echo "Warning: Destination '$dest_file' already exists. Overwriting..." >&2
-        end
         # Validate required tools
         if not type -q pv
             echo "Error: pv (pipe viewer) is required but not installed" >&2
             return 1
         end
         if test -f "$src"
-            set -l file_size (stat -f%z "$src" 2>/dev/null; or stat -c%s "$src" 2>/dev/null; or echo "unknown")
-            echo "Copying $src → $dest (size: $file_size bytes)"
+            # Determine destination: if dest is a directory, append filename; otherwise use dest as-is
+            if test -d "$dest"
+                set dest_file "$dest/"(path basename $src)
+            else
+                set dest_file "$dest"
+                # Ensure parent directory exists
+                set -l dest_dir (dirname "$dest_file")
+                if not test -d "$dest_dir"
+                    echo "Error: Parent directory '$dest_dir' does not exist" >&2
+                    return 1
+                end
+            end
+            if test -e "$dest_file"
+                echo "Warning: Destination '$dest_file' already exists. Overwriting..." >&2
+            end
+            # Get file size using du (more reliable, no redirection issues)
+            set -l file_size "unknown"
+            if type -q du
+                set -l size_output (du -b "$src" 2>/dev/null | cut -f1)
+                if test $status -eq 0; and test -n "$size_output"
+                    set file_size "$size_output"
+                end
+            end
+            echo "Copying $src → $dest_file (size: $file_size bytes)"
             if not pv "$src" > "$dest_file" ^/dev/null
                 echo "Error: Failed to copy file" >&2
                 return 1
             end
             echo "✅ Copied successfully"
         else if test -d "$src"
+            # For directories, destination must be a directory
+            if not test -d "$dest"
+                echo "Error: When copying a directory, destination must be a directory" >&2
+                return 1
+            end
             echo "Copying directory $src → $dest"
             if not type -q tar
                 echo "Error: tar is required but not installed" >&2
@@ -98,7 +115,14 @@ function mvc
             return 1
         end
         if test -f "$src"
-            set -l file_size (stat -f%z "$src" 2>/dev/null; or stat -c%s "$src" 2>/dev/null; or echo "unknown")
+            # Get file size using du (more reliable, no redirection issues)
+            set -l file_size "unknown"
+            if type -q du
+                set -l size_output (du -b "$src" 2>/dev/null | cut -f1)
+                if test $status -eq 0; and test -n "$size_output"
+                    set file_size "$size_output"
+                end
+            end
             echo "Moving $src → $dest (size: $file_size bytes)"
             if pv "$src" > "$dest_file"
                 if not command rm "$src"
