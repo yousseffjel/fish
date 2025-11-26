@@ -217,7 +217,8 @@ function trash
             echo "Error: No write permission to remove '$f'" >&2
             continue
         end
-        if not command mv "$f" "$trash_dir/" ^/dev/null
+        mv "$f" "$trash_dir/" ^/dev/null
+        if test $status -ne 0
             echo "Error: Failed to move '$f' to trash" >&2
             return 1
         end
@@ -250,12 +251,12 @@ function etrash
         echo "Cancelled."
         return 0
     end
-    if command rm -rf $trash_dir/* ^/dev/null
-        echo "Trash emptied 🧹"
-    else
+    rm -rf "$trash_dir"/* ^/dev/null
+    if test $status -ne 0
         echo "Error: Failed to empty trash" >&2
         return 1
     end
+    echo "Trash emptied 🧹"
 end
 
 # --- Fuzzy cd using fzf ---
