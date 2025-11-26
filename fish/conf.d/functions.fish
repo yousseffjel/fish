@@ -217,7 +217,7 @@ function trash
             echo "Error: No write permission to remove '$f'" >&2
             continue
         end
-        mv "$f" "$trash_dir/" ^/dev/null
+        mv "$f" "$trash_dir/" 2>/dev/null
         if test $status -ne 0
             echo "Error: Failed to move '$f' to trash" >&2
             return 1
@@ -251,7 +251,7 @@ function etrash
         echo "Cancelled."
         return 0
     end
-    rm -rf "$trash_dir"/* ^/dev/null
+    rm -rf "$trash_dir"/* 2>/dev/null
     if test $status -ne 0
         echo "Error: Failed to empty trash" >&2
         return 1
