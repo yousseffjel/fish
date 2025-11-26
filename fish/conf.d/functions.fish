@@ -569,3 +569,78 @@ function proj
         echo "📁 Switched to: $selected"
     end
 end
+
+# --- Copy and go to directory (inspired by bash cpg) ---
+function cpg
+    if count $argv < 2
+        echo "Usage: cpg source destination" >&2
+        return 1
+    end
+    set -l src $argv[1]
+    set -l dest $argv[2]
+    
+    if not test -e "$src"
+        echo "Error: Source '$src' does not exist" >&2
+        return 1
+    end
+    
+    # Use cpc for copying
+    if cpc "$src" "$dest"
+        # If destination is a directory, cd into it
+        if test -d "$dest"
+            cd "$dest"
+        end
+    else
+        return 1
+    end
+end
+
+# --- Move and go to directory (inspired by bash mvg) ---
+function mvg
+    if count $argv < 2
+        echo "Usage: mvg source destination" >&2
+        return 1
+    end
+    set -l src $argv[1]
+    set -l dest $argv[2]
+    
+    if not test -e "$src"
+        echo "Error: Source '$src' does not exist" >&2
+        return 1
+    end
+    
+    # Use mvc for moving
+    if mvc "$src" "$dest"
+        # If destination is a directory, cd into it
+        if test -d "$dest"
+            cd "$dest"
+        end
+    else
+        return 1
+    end
+end
+
+# --- Go up N directories (inspired by bash up) ---
+function up
+    set -l levels 1
+    if count $argv > 0
+        set levels $argv[1]
+        # Validate it's a number
+        if not string match -qr '^[0-9]+$' "$levels"
+            echo "Error: '$levels' is not a valid number" >&2
+            return 1
+        end
+    end
+    
+    set -l path (pwd)
+    for i in (seq 1 $levels)
+        set path (dirname "$path")
+    end
+    
+    if test -d "$path"
+        cd "$path"
+    else
+        echo "Error: Cannot go up $levels level(s) - path '$path' does not exist" >&2
+        return 1
+    end
+end
